@@ -126,9 +126,14 @@
       margin-bottom: 10px;
     }
 
+    /* Add spacing between bullet points */
     .paper-list ul {
       list-style: disc inside;
       padding-left: 20px;
+    }
+
+    .paper-list ul li {
+      margin-bottom: 15px; /* Extra spacing */
     }
 
     .advice-box {
@@ -156,13 +161,35 @@
     .chat-box .button-group {
       margin-top: 10px;
     }
+
+    /* Contact Button styling */
+    .contact-button {
+      margin-left: 10px;
+      background-color: #adb5bd;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-weight: bold;
+      color: #fff;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .contact-button:hover {
+      background-color: #868e96;
+      transform: scale(1.05);
+    }
+
+    .contact-button:active {
+      transform: scale(0.95);
+    }
   </style>
 </head>
 <body>
 
 <div class="container page active" id="page1">
-  <h1>Welcome to EcoHack</h1>
-
+    <img src="images/logo.png" alt="EcoHack Welcome Image" style="width:100%; height:auto;">
+  
   <!-- Question: Where is your Farm? -->
   <div class="question">
     <h2>Where is your farm?</h2>
@@ -217,10 +244,20 @@
   <div class="paper-list">
     <h2>Relevant Papers</h2>
     <ul>
-      <li>"Improving Coffee Yield Through Forest-Based Pollination"</li>
-      <li>"Traditional Farming Techniques for Colombian Coffee"</li>
-      <li>"The Role of Forests in Supporting Coffee Ecosystems"</li>
-      <li>"Optimizing Coffee Harvests in Biodiverse Areas"</li>
+      <!-- These are placeholders. We will populate them dynamically using fetch, 
+           but for demonstration, here's how the final HTML structure will look: -->
+      <li>"Improving Coffee Yield Through Forest-Based Pollination"
+        <button class="contact-button" data-paper-title="Improving Coffee Yield Through Forest-Based Pollination">Contact</button>
+      </li>
+      <li>"Traditional Farming Techniques for Colombian Coffee"
+        <button class="contact-button" data-paper-title="Traditional Farming Techniques for Colombian Coffee">Contact</button>
+      </li>
+      <li>"The Role of Forests in Supporting Coffee Ecosystems"
+        <button class="contact-button" data-paper-title="The Role of Forests in Supporting Coffee Ecosystems">Contact</button>
+      </li>
+      <li>"Optimizing Coffee Harvests in Biodiverse Areas"
+        <button class="contact-button" data-paper-title="Optimizing Coffee Harvests in Biodiverse Areas">Contact</button>
+      </li>
     </ul>
   </div>
 
@@ -241,17 +278,17 @@
 <script>
   const selectedAnswers = {};
 
-  // Handle text input for farm location
+  // 1. Capture user input for location
   document.getElementById('farmLocation').addEventListener('input', function () {
     selectedAnswers['Location'] = this.value;
   });
 
-  // Add event listeners to buttons
+  // 2. Capture button clicks for other questions
   document.querySelectorAll('.button-group button').forEach(button => {
     button.addEventListener('click', function () {
       const questionGroup = this.closest('.question').querySelector('h2').textContent;
 
-      // Map question headings to JSON keys
+      // Map headings to JSON keys
       const keyMap = {
         'What do you farm?': 'Crop',
         'What type of farming do you practice?': 'Agriculture',
@@ -269,8 +306,9 @@
     });
   });
 
-  // Function to submit survey data to the backend
-  function submitSurvey() {
+  // 3. Merged submitSurvey function
+  async function submitSurvey() {
+    // Construct the surveyData object
     const surveyData = {
       Location: selectedAnswers['Location'] || 'N/A',
       Crop: selectedAnswers['Crop'] || 'N/A',
@@ -280,31 +318,74 @@
 
     console.log("📤 Sending Survey Data:", surveyData); // Debug log
 
-    // POST survey data to the backend
-    fetch("http://127.0.0.1:5001/survey", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(surveyData),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        console.log("✅ Survey Submission Response:", data); // Debug log
-      })
-      .catch((error) => {
-        console.error("❌ Error submitting survey data:", error);
+    try {
+      const surveyResponse = await fetch("http://127.0.0.1:5000/survey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(surveyData),
       });
+
+      if (!surveyResponse.ok) {
+        // If submission failed, log it
+        const errorText = await surveyResponse.text();
+        console.error("❌ Failed to submit survey:", errorText);
+        return; // Stop here if the survey data couldn't be submitted
+      }
+
+      // If successful, log the response
+      const responseData = await surveyResponse.json();
+      console.log("✅ Survey submitted successfully:", responseData);
+
+      // 3a. Fetch pregenerated questions
+      const questionResponse = await fetch('http://127.0.0.1:5000/pregenerated-questions');
+      const questionData = await questionResponse.json();
+      // Populate pregenerated questions in the DOM
+      const questionContainer = document.getElementById('pregenerated-questions');
+      questionContainer.innerHTML = '';
+      questionData.questions.forEach(question => {
+        const button = document.createElement('button');
+        button.textContent = question;
+        button.classList.add('question-button');
+        questionContainer.appendChild(button);
+      });
+
+      // 3b. Fetch paper titles
+      const paperResponse = await fetch('http://127.0.0.1:5000/papers');
+      const paperData = await paperResponse.json();
+      // Populate paper titles in the DOM
+      const paperList = document.querySelector('.paper-list ul');
+      paperList.innerHTML = '';
+      paperData.papers.forEach(title => {
+        const listItem = document.createElement('li');
+        listItem.textContent = title;
+
+        // Add the Contact button
+        const contactButton = document.createElement('button');
+        contactButton.classList.add('contact-button');
+        contactButton.dataset.paperTitle = title; 
+        contactButton.textContent = 'Contact';
+        listItem.appendChild(contactButton);
+
+        paperList.appendChild(listItem);
+      });
+
+      // 3c. Switch to the results page
+      document.getElementById('page1').classList.remove('active');
+      document.getElementById('page2').classList.add('active');
+
+    } catch (error) {
+      console.error("❌ Error submitting survey data:", error);
+    }
   }
 
-  // Handle the submit button
+  // 4. Hook the submit button to the merged function
   document.getElementById('submitBtn').addEventListener('click', () => {
-    submitSurvey(); // Submit survey data to the backend
-    document.getElementById('page1').classList.remove('active');
-    document.getElementById('page2').classList.add('active');
+    submitSurvey();
   });
 
-  // new Chat functionality
-  const API_BASE_URL = "http://127.0.0.1:5001"; // Updated backend API
 
+  // ~~~ The new Chat functionality remains unchanged below ~~~
+  const API_BASE_URL = "http://127.0.0.1:5000"; // for the /chat endpoint
   const chatTextarea = document.querySelector('.chat-box textarea');
   const messagesDiv = document.createElement('div');
   messagesDiv.classList.add('messages');
@@ -313,116 +394,78 @@
   let chatHistory = []; // Maintain session memory
 
   chatTextarea.addEventListener('keypress', async function (e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const userMessage = chatTextarea.value.trim();
+      if (userMessage) {
+        // Add user message
+        chatHistory.push({ role: "user", content: userMessage });
+        const userMessageElement = document.createElement('p');
+        userMessageElement.classList.add('user');
+        userMessageElement.textContent = userMessage;
+        messagesDiv.appendChild(userMessageElement);
 
-          const userMessage = chatTextarea.value.trim();
-          if (userMessage) {
-              chatHistory.push({ role: "user", content: userMessage });
+        // AI "Thinking..."
+        const aiResponseElement = document.createElement('p');
+        aiResponseElement.classList.add('ai');
+        aiResponseElement.textContent = "⏳ Thinking...";
+        messagesDiv.appendChild(aiResponseElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-              // Display user message
-              const userMessageElement = document.createElement('p');
-              userMessageElement.classList.add('user');
-              userMessageElement.textContent = userMessage;
-              messagesDiv.appendChild(userMessageElement);
+        try {
+          const response = await fetch(`${API_BASE_URL}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: userMessage })
+          });
 
-              // Show "Thinking..." response
-              const aiResponseElement = document.createElement('p');
-              aiResponseElement.classList.add('ai');
-              aiResponseElement.textContent = "⏳ Thinking...";
-              messagesDiv.appendChild(aiResponseElement);
-
-              messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-              try {
-                  const response = await fetch(`${API_BASE_URL}/chat`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ message: userMessage })
-                  });
-
-                  // Ensure response is JSON
-                  const contentType = response.headers.get('content-type');
-                  if (!contentType || !contentType.includes('application/json')) {
-                      throw new Error("Server response is not JSON");
-                  }
-
-                  const data = await response.json();
-
-                  console.log("🔍 Full API Response:", data);  // Debugging Log
-
-                  // ✅ Ensure 'response' is extracted properly
-                  if (data && typeof data.response === "string") {
-                      aiResponseElement.textContent = String(data.response);  // Ensure it's a string
-                      chatHistory.push({ role: "ai", content: String(data.response) });
-                  } else {
-                      aiResponseElement.textContent = "⚠️ Unexpected response format.";
-                  }
-
-              } catch (err) {
-                  console.error('❌ Error fetching AI response:', err);
-                  aiResponseElement.textContent = "❌ Error: Unable to contact AI.";
-              }
-
-              chatTextarea.value = '';
+          if (!response.headers.get('content-type')?.includes('application/json')) {
+            throw new Error("Server response is not JSON");
           }
+
+          const data = await response.json();
+          console.log("🔍 Full API Response:", data);  // Debugging Log
+
+          if (data && typeof data.response === "string") {
+            aiResponseElement.textContent = String(data.response);
+            chatHistory.push({ role: "ai", content: String(data.response) });
+          } else {
+            aiResponseElement.textContent = "⚠️ Unexpected response format.";
+          }
+
+        } catch (err) {
+          console.error('❌ Error fetching AI response:', err);
+          aiResponseElement.textContent = "❌ Error: Unable to contact AI.";
+        }
+
+        // Clear textarea
+        chatTextarea.value = '';
       }
+    }
   });
 
+  //contact button event listener
+  document.addEventListener('click', async function (event) {
+  if (event.target.classList.contains('contact-button')) {
+    const paperTitle = event.target.dataset.paperTitle;
+    try {
+      const response = await fetch(`${API_BASE_URL}/paper-author?title=${encodeURIComponent(paperTitle)}`);
+      const data = await response.json();
+      if (response.ok) {
+        alert(`Contact the author of "${paperTitle}" at: ${data.email}`);
+      } else {
+        // e.g. { error: 'No author found...' }
+        alert(`Error: ${data.error || 'Unable to fetch contact email'}`);
+      }
+    } catch (err) {
+      console.error('❌ Error fetching author email:', err);
+      alert('❌ Error: Unable to contact server.');
+    }
+  }
+});
 
 
-
-
-
-  // Chat functionality
-//   const chatTextarea = document.querySelector('.chat-box textarea');
-//   const messagesDiv = document.createElement('div');
-//   messagesDiv.classList.add('messages');
-//   chatTextarea.parentNode.insertBefore(messagesDiv, chatTextarea);
-
-//   chatTextarea.addEventListener('keypress', async function (e) {
-//     if (e.key === 'Enter' && !e.shiftKey) {
-//       e.preventDefault();
-
-//       const userMessage = chatTextarea.value.trim();
-//       if (userMessage) {
-//         // Display user message
-//         const userMessageElement = document.createElement('p');
-//         userMessageElement.classList.add('user');
-//         userMessageElement.textContent = userMessage;
-//         messagesDiv.appendChild(userMessageElement);
-
-//         // Simulate AI response
-//         const aiResponseElement = document.createElement('p');
-//         aiResponseElement.classList.add('ai');
-//         aiResponseElement.textContent = 'Thinking...'; // Placeholder while waiting for AI
-//         messagesDiv.appendChild(aiResponseElement);
-
-//         // Scroll to bottom
-//         messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-//         try {
-//           // Send message to backend (replace URL with your actual endpoint)
-//           const response = await fetch('http://127.0.0.1:5000/chat', {
-//             method: 'POST',
-//             headers: { 'Content-Type': 'application/json' },
-//             body: JSON.stringify({ message: userMessage })
-//           });
-
-//           const data = await response.json();
-//           aiResponseElement.textContent = data.response || 'No response from AI.';
-//         } catch (err) {
-//           console.error('Error fetching AI response:', err);
-//           aiResponseElement.textContent = 'Error: Unable to contact AI.';
-//         }
-
-//         // Clear the input field
-//         chatTextarea.value = '';
-//       }
-//     }
-//   });
-// </script>
-
+</script>
 
 </body>
 </html>
